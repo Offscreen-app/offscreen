@@ -78,15 +78,35 @@
     .bar-value { font-size:.7rem; color:var(--muted); white-space:nowrap; }
     .day-label { font-size:.75rem; color:var(--muted); }
     .day-label.today { color:var(--ink); font-weight:700; }
+    .day-reflection { min-height:23px; font-size:1.15rem; line-height:1.2; margin-top:-4px; }
+    .day-reflection.empty { visibility:hidden; }
     .legend { display:flex; gap:16px; align-items:center; margin-top:22px; font-size:.75rem; color:var(--muted); }
     .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--sage-dark); margin-right:6px; }
     .dot.pale { background:#c9cfc0; }
+    .reflection-legend { display:inline-flex; align-items:center; gap:5px; }
     .empty-state { text-align:center; padding:25px 10px; color:var(--muted); font-size:.86rem; }
     .privacy { display:flex; align-items:flex-start; gap:12px; border:1px solid var(--line); border-radius:16px; padding:16px; color:var(--muted); font-size:.8rem; line-height:1.55; margin-top:18px; }
     .privacy strong { color:var(--ink); font-weight:650; }
     footer { padding:0 0 30px; display:flex; justify-content:space-between; gap:16px; color:var(--muted); font-size:.75rem; }
     .text-btn { background:none; border:0; padding:0; color:var(--muted); text-decoration:underline; text-underline-offset:3px; font-size:.75rem; }
     .toast { min-height:20px; margin-top:8px; color:var(--sage-dark); font-size:.8rem; }
+    .reflection { border-top:1px solid var(--line); margin-top:20px; padding-top:18px; }
+    .reflection[hidden] { display:none; }
+    .reflection-options { display:flex; gap:9px; flex-wrap:wrap; margin-top:12px; }
+    .reflection-option { flex:1; min-width:90px; border:1px solid var(--line); border-radius:13px; background:#f4f3ed; color:var(--ink); padding:12px 9px; font-size:.83rem; }
+    .reflection-option[aria-pressed="true"] { border-color:var(--sage-dark); background:#e6e8dc; box-shadow:inset 0 0 0 1px var(--sage-dark); }
+    .reflection-option .face { display:block; font-size:1.35rem; margin-bottom:5px; }
+    .goal-settings { border-top:1px solid var(--line); padding-top:18px; margin-bottom:22px; }
+    .goal-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+    .goal-row .input-wrap { max-width:125px; }
+    .goal-row input { padding:11px 42px 11px 12px; }
+    .goal-row .btn { padding:11px 14px; }
+    .goal-note { font-size:.77rem; color:var(--muted); line-height:1.5; margin:9px 0 0; }
+    .bar-area { position:relative; }
+    .goal-line { position:absolute; left:-3px; right:-3px; border-top:2px dashed var(--danger); z-index:2; pointer-events:none; opacity:.9; }
+    .goal-line[hidden] { display:none; }
+    .goal-legend { display:inline-flex; align-items:center; gap:6px; }
+    .goal-dash { width:15px; border-top:2px dashed var(--danger); display:inline-block; }
     @media (max-width:720px) {
       .wrap { width:min(100% - 24px, 560px); }
       header { padding:20px 0; }
@@ -149,6 +169,17 @@
             <p class="help">Use your phone's Screen Time or Digital Wellbeing report as a reference. Enter only the non-work portion you want to track.</p>
             <div class="toast" id="form-message" role="status" aria-live="polite"></div>
           </form>
+          <section class="reflection" id="reflection-section" hidden aria-labelledby="reflection-title">
+            <div class="field-label" id="reflection-title">A quick reflection</div>
+            <div style="font-family:Georgia,serif;font-size:1.35rem;letter-spacing:-.03em">Did that time feel worthwhile?</div>
+            <p class="help">No right answer. This is about how it felt to you, not whether your screen time was “good” or “bad.”</p>
+            <div class="reflection-options" role="group" aria-label="How worthwhile did your screen time feel?">
+              <button class="reflection-option" type="button" data-rating="worthwhile" aria-pressed="false"><span class="face" aria-hidden="true">🙂</span>Worth it</button>
+              <button class="reflection-option" type="button" data-rating="mixed" aria-pressed="false"><span class="face" aria-hidden="true">😐</span>A bit of both</button>
+              <button class="reflection-option" type="button" data-rating="not-worthwhile" aria-pressed="false"><span class="face" aria-hidden="true">🙁</span>Not really</button>
+            </div>
+            <div class="toast" id="reflection-message" role="status" aria-live="polite"></div>
+          </section>
         </article>
 
         <article class="card quote-card">
@@ -161,12 +192,39 @@
             <blockquote id="quote-text">Almost everything will work again if you unplug it for a few minutes, including you.</blockquote>
           </div>
           <div class="quote-footer">
-            <span id="quote-author">— Anne Lamott</span>
-            <span class="quote-tag">Today's reminder</span>
+            <span id="quote-author">— An offscreen reminder</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+              <button class="text-btn" id="next-quote" type="button">Another thought ↻</button>
+              <span class="quote-tag">A thought for you</span>
+            </div>
           </div>
         </article>
 
         <article class="card chart-card">
+          <section class="goal-settings" aria-labelledby="goal-heading">
+            <div class="card-head" style="margin-bottom:0">
+              <div>
+                <div class="eyebrow">Your own target</div>
+                <h2 id="goal-heading" style="margin-top:7px">Set a daily goal</h2>
+              </div>
+              <span class="tiny" id="goal-status">Optional</span>
+            </div>
+            <p class="goal-note">Choose a target that feels realistic for you. It’s a reference point, not a verdict.</p>
+            <form id="goal-form" class="goal-row">
+              <div class="input-wrap">
+                <input id="goal-hours" type="number" min="0" max="23" step="1" inputmode="numeric" placeholder="0" aria-label="Goal hours">
+                <span class="unit">hours</span>
+              </div>
+              <div class="input-wrap">
+                <input id="goal-minutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0" aria-label="Goal minutes">
+                <span class="unit">mins</span>
+              </div>
+              <button class="btn" type="submit" id="goal-save">Set goal</button>
+              <button class="text-btn" type="button" id="goal-clear" hidden>Remove goal</button>
+            </form>
+            <div class="goal-note" id="goal-summary" aria-live="polite"></div>
+            <div class="toast" id="goal-message" role="status" aria-live="polite"></div>
+          </section>
           <div class="chart-meta">
             <div>
               <div class="eyebrow">Your patterns, not perfection</div>
@@ -181,6 +239,7 @@
           <div class="legend">
             <span><i class="dot"></i>Today</span>
             <span><i class="dot pale"></i>Previous days</span>
+            <span class="goal-legend" id="goal-legend" hidden><i class="goal-dash"></i>Your goal</span>
           </div>
           <div class="empty-state" id="chart-empty">Your week will take shape as you add daily entries.</div>
         </article>
@@ -201,6 +260,8 @@
   <script>
     (() => {
       const STORAGE_KEY = "offscreen-screen-time-v1";
+      const PREFERENCES_KEY = "offscreen-preferences-v1";
+      const REFLECTIONS_KEY = "offscreen-reflections-v1";
       const quotes = [
         { text: "A little less scrolling. A little more living.", author: "An offscreen reminder" },
         { text: "Be where your feet are.", author: "An offscreen reminder" },
@@ -215,7 +276,74 @@
         { text: "You don't have to fill every quiet moment.", author: "An offscreen reminder" },
         { text: "Notice the habit. Choose your next step.", author: "An offscreen reminder" },
         { text: "Progress is noticing, not being perfect.", author: "An offscreen reminder" },
-        { text: "Come back to the world, one moment at a time.", author: "An offscreen reminder" }
+        { text: "Come back to the world, one moment at a time.", author: "An offscreen reminder" },
+        { text: "Not every pause needs a screen.", author: "An offscreen reminder" },
+        { text: "Give your attention to something that gives something back.", author: "An offscreen reminder" },
+        { text: "Your day is happening beyond the glass.", author: "An offscreen reminder" },
+        { text: "Rest is allowed to be quiet.", author: "An offscreen reminder" },
+        { text: "Choose what deserves the next few minutes.", author: "An offscreen reminder" },
+        { text: "Being bored can be the beginning of an idea.", author: "An offscreen reminder" },
+        { text: "Let a moment be enough without documenting it.", author: "An offscreen reminder" },
+        { text: "You can enjoy the internet and still make room for life.", author: "An offscreen reminder" },
+        { text: "Your attention is yours to direct, one choice at a time.", author: "An offscreen reminder" },
+        { text: "A little space can help you hear your own thoughts.", author: "An offscreen reminder" },
+        { text: "Not everything interesting needs your immediate attention.", author: "An offscreen reminder" },
+        { text: "Take the moment in before you move on.", author: "An offscreen reminder" },
+        { text: "Some of the best things happen off schedule.", author: "An offscreen reminder" },
+        { text: "You are allowed to leave a feed unfinished.", author: "An offscreen reminder" },
+        { text: "Make room for the people in front of you.", author: "An offscreen reminder" },
+        { text: "An intentional minute is still intentional.", author: "An offscreen reminder" },
+        { text: "Your worth isn't measured in hours online or offline.", author: "An offscreen reminder" },
+        { text: "Sometimes the next best thing is simply looking up.", author: "An offscreen reminder" },
+        { text: "Let your phone be a tool, not the whole room.", author: "An offscreen reminder" },
+        { text: "Notice what leaves you feeling more like yourself.", author: "An offscreen reminder" },
+        { text: "Spend a little attention on the life you already have.", author: "An offscreen reminder" },
+        { text: "You don't have to answer every notification right now.", author: "An offscreen reminder" },
+        { text: "There's no need to turn every habit into a competition.", author: "An offscreen reminder" },
+        { text: "A break can be a choice, not a rule.", author: "An offscreen reminder" },
+        { text: "Find one small thing worth being present for.", author: "An offscreen reminder" },
+        { text: "Let your next choice be yours, not automatic.", author: "An offscreen reminder" },
+        { text: "You can return later; this moment won't repeat.", author: "An offscreen reminder" },
+        { text: "Curiosity can take you beyond a screen, too.", author: "An offscreen reminder" },
+        { text: "Give real life a chance to surprise you.", author: "An offscreen reminder" },
+        { text: "Rest your attention where you want it to grow.", author: "An offscreen reminder" },
+        { text: "Your habits are patterns, not your identity.", author: "An offscreen reminder" },
+        { text: "One thoughtful choice is enough to begin.", author: "An offscreen reminder" },
+        { text: "Make the next few minutes count in your own way.", author: "An offscreen reminder" },
+        { text: "You don't need a perfect day to notice a pattern.", author: "An offscreen reminder" },
+        { text: "Use your screen; don't let it use every spare moment.", author: "An offscreen reminder" },
+        { text: "Leave a little room for the unexpected.", author: "An offscreen reminder" },
+        { text: "Sometimes enough is a good place to stop.", author: "An offscreen reminder" },
+        { text: "Notice the difference between choosing and drifting.", author: "An offscreen reminder" },
+        { text: "Your attention deserves the same care as your time.", author: "An offscreen reminder" },
+        { text: "Let a conversation have your full attention for a while.", author: "An offscreen reminder" },
+        { text: "Make space for something that doesn't need Wi-Fi.", author: "An offscreen reminder" },
+        { text: "Small moments count even when nobody sees them.", author: "An offscreen reminder" },
+        { text: "There's more to a day than what fits on a screen.", author: "An offscreen reminder" },
+        { text: "Choose presence when it matters to you.", author: "An offscreen reminder" },
+        { text: "Your free time doesn't have to be optimized.", author: "An offscreen reminder" },
+        { text: "Do something because it feels meaningful, not because it looks productive.", author: "An offscreen reminder" },
+        { text: "Give yourself permission to log off without guilt.", author: "An offscreen reminder" },
+        { text: "Not every spare second needs filling.", author: "An offscreen reminder" },
+        { text: "Keep what enriches your life; question what doesn't.", author: "An offscreen reminder" },
+        { text: "Let your attention follow your values, not just the next alert.", author: "An offscreen reminder" },
+        { text: "One day of data is a clue, not a conclusion.", author: "An offscreen reminder" },
+        { text: "Be curious about your habits, not harsh about them.", author: "An offscreen reminder" },
+        { text: "Your screen time tells a story; you get to interpret it.", author: "An offscreen reminder" },
+        { text: "Reflection works best without a verdict.", author: "An offscreen reminder" },
+        { text: "Some online time is meaningful. Some isn't. Notice the difference.", author: "An offscreen reminder" },
+        { text: "Progress can look like understanding, not just reducing.", author: "An offscreen reminder" },
+        { text: "Make choices that fit the life you want to live.", author: "An offscreen reminder" },
+        { text: "Let your tools support your priorities.", author: "An offscreen reminder" },
+        { text: "There's no single perfect number for everyone.", author: "An offscreen reminder" },
+        { text: "Notice how you feel, not just how long you stayed.", author: "An offscreen reminder" },
+        { text: "Give yourself a moment before opening the next app.", author: "An offscreen reminder" },
+        { text: "Your next choice doesn't have to match your last one.", author: "An offscreen reminder" },
+        { text: "Life isn't a scoreboard, and neither is this chart.", author: "An offscreen reminder" },
+        { text: "Use the information; leave the shame behind.", author: "An offscreen reminder" },
+        { text: "Small changes matter most when they matter to you.", author: "An offscreen reminder" },
+        { text: "Make room for what you don't want to miss.", author: "An offscreen reminder" },
+        { text: "Come back to your day gently, whenever you're ready.", author: "An offscreen reminder" }
       ];
 
       const $ = (id) => document.getElementById(id);
@@ -233,6 +361,16 @@
         } catch (_) { return {}; }
       }
       let data = loadData();
+      function loadObject(key) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return {};
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        } catch (_) { return {}; }
+      }
+      let preferences = loadObject(PREFERENCES_KEY);
+      let reflections = loadObject(REFLECTIONS_KEY);
 
       function saveData() {
         try {
@@ -256,11 +394,19 @@
       function validEntry(value) {
         return Number.isInteger(value) && value >= 0 && value <= 1439;
       }
-      function renderQuote() {
-        // Stable quote for each local calendar day.
-        const start = new Date(today.getFullYear(), 0, 0);
-        const dayOfYear = Math.floor((today - start) / 86400000);
-        const q = quotes[dayOfYear % quotes.length];
+      let currentQuoteIndex = null;
+
+      function renderQuote(nextIndex = null) {
+        // Start with a stable quote for the local calendar day. The visitor can
+        // choose another thought at any time; ordinary re-renders keep it selected.
+        if (Number.isInteger(nextIndex)) {
+          currentQuoteIndex = ((nextIndex % quotes.length) + quotes.length) % quotes.length;
+        } else if (currentQuoteIndex === null) {
+          const start = new Date(today.getFullYear(), 0, 0);
+          const dayOfYear = Math.floor((today - start) / 86400000);
+          currentQuoteIndex = dayOfYear % quotes.length;
+        }
+        const q = quotes[currentQuoteIndex];
         $("quote-text").textContent = q.text;
         $("quote-author").textContent = `— ${q.author}`;
       }
@@ -295,6 +441,48 @@
           else comparison.textContent = "Same as yesterday. A useful thing to notice.";
         }
       }
+      function renderGoalSettings() {
+        const goal = preferences.dailyGoalMinutes;
+        const hasGoal = Number.isInteger(goal) && goal >= 0 && goal <= 1439;
+        $("goal-status").textContent = hasGoal ? `Goal: ${formatMinutes(goal)}/day` : "Optional";
+        $("goal-save").textContent = hasGoal ? "Update goal" : "Set goal";
+        $("goal-clear").hidden = !hasGoal;
+        $("goal-legend").hidden = !hasGoal;
+        $("goal-summary").textContent = "";
+        if (hasGoal) {
+          const loggedDays = [];
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            const v = data[dateKey(d)];
+            if (typeof v === "number") loggedDays.push(v);
+          }
+          const under = loggedDays.filter(v => v <= goal).length;
+          $("goal-summary").textContent = loggedDays.length
+            ? `${under} of ${loggedDays.length} logged ${loggedDays.length === 1 ? "day" : "days"} under your goal in the last 7 days.`
+            : "Your goal line will appear on the chart once you have entries.";
+          $("goal-hours").value = Math.floor(goal / 60);
+          $("goal-minutes").value = goal % 60;
+        } else {
+          $("goal-hours").value = "";
+          $("goal-minutes").value = "";
+        }
+      }
+
+      function renderReflection() {
+        const section = $("reflection-section");
+        const hasEntry = typeof data[todayKey] === "number";
+        section.hidden = !hasEntry;
+        if (!hasEntry) return;
+        const rating = reflections[todayKey];
+        document.querySelectorAll(".reflection-option").forEach(button => {
+          button.setAttribute("aria-pressed", String(button.dataset.rating === rating));
+        });
+        $("reflection-message").textContent = rating
+          ? "Reflection saved. You can change it any time today."
+          : "Optional — choose whichever feels closest.";
+      }
+
       function renderChart() {
         const chart = $("chart");
         chart.innerHTML = "";
@@ -308,7 +496,8 @@
         const avg = values.length ? Math.round(values.reduce((a,b) => a+b, 0) / values.length) : null;
         $("weekly-average").textContent = avg === null ? "—" : formatMinutes(avg);
         $("chart-empty").style.display = values.length ? "none" : "block";
-        const maxValue = Math.max(60, ...values);
+        const goalValue = Number.isInteger(preferences.dailyGoalMinutes) ? preferences.dailyGoalMinutes : null;
+        const maxValue = Math.max(60, ...values, ...(goalValue === null ? [] : [goalValue]));
         days.forEach(day => {
           const isToday = day.key === todayKey;
           const hasValue = typeof day.value === "number";
@@ -319,6 +508,13 @@
           value.textContent = hasValue ? formatMinutes(day.value) : "—";
           const area = document.createElement("div");
           area.className = "bar-area";
+          if (goalValue !== null) {
+            const goalLine = document.createElement("div");
+            goalLine.className = "goal-line";
+            goalLine.style.bottom = `${Math.min(100, (goalValue / maxValue) * 100)}%`;
+            goalLine.setAttribute("aria-hidden", "true");
+            area.appendChild(goalLine);
+          }
           const bar = document.createElement("div");
           bar.className = "bar" + (isToday ? " today" : "") + (!hasValue ? " empty" : "");
           bar.style.height = hasValue ? `${Math.max(5, (day.value / maxValue) * 100)}%` : "4px";
@@ -327,7 +523,24 @@
           const label = document.createElement("div");
           label.className = "day-label" + (isToday ? " today" : "");
           label.textContent = isToday ? "Today" : day.date.toLocaleDateString(undefined, { weekday:"short" });
-          col.append(value, area, label);
+          const reflection = document.createElement("div");
+          reflection.className = "day-reflection";
+          const rating = reflections[day.key];
+          const faces = {
+            "worthwhile": { emoji: "🙂", label: "Felt worthwhile" },
+            "mixed": { emoji: "😐", label: "A bit of both" },
+            "not-worthwhile": { emoji: "🙁", label: "Didn't feel worthwhile" }
+          };
+          if (faces[rating]) {
+            reflection.textContent = faces[rating].emoji;
+            reflection.title = `${formatDate(day.date)} reflection: ${faces[rating].label}`;
+            reflection.setAttribute("aria-label", `Reflection: ${faces[rating].label}`);
+          } else {
+            reflection.classList.add("empty");
+            reflection.textContent = "🙂";
+            reflection.setAttribute("aria-hidden", "true");
+          }
+          col.append(value, area, label, reflection);
           chart.appendChild(col);
         });
       }
@@ -336,8 +549,14 @@
         $("greeting").textContent = today.getHours() < 12 ? "A gentle morning check-in" : today.getHours() < 18 ? "A gentle afternoon check-in" : "A gentle evening check-in";
         renderQuote();
         renderComparison();
+        renderReflection();
+        renderGoalSettings();
         renderChart();
       }
+
+      $("next-quote").addEventListener("click", () => {
+        renderQuote(currentQuoteIndex + 1);
+      });
 
       $("entry-form").addEventListener("submit", (event) => {
         event.preventDefault();
@@ -359,11 +578,61 @@
         }
       });
 
+      $("goal-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const hRaw = $("goal-hours").value;
+        const mRaw = $("goal-minutes").value;
+        const h = hRaw === "" ? 0 : Number(hRaw);
+        const m = mRaw === "" ? 0 : Number(mRaw);
+        if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59 || (h === 0 && m === 0)) {
+          $("goal-message").textContent = "Enter a goal greater than 0 minutes, using hours from 0–23 and minutes from 0–59.";
+          return;
+        }
+        preferences.dailyGoalMinutes = h * 60 + m;
+        try {
+          localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
+          $("goal-message").textContent = "Your goal is saved. You can change it whenever you like.";
+          render();
+        } catch (_) {
+          $("goal-message").textContent = "Couldn't save your goal in this browser.";
+        }
+      });
+
+      $("goal-clear").addEventListener("click", () => {
+        delete preferences.dailyGoalMinutes;
+        try {
+          localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
+          $("goal-message").textContent = "Your goal has been removed.";
+          render();
+        } catch (_) {
+          $("goal-message").textContent = "Couldn't update your settings in this browser.";
+        }
+      });
+
+      document.querySelectorAll(".reflection-option").forEach(button => {
+        button.addEventListener("click", () => {
+          if (typeof data[todayKey] !== "number") return;
+          reflections[todayKey] = button.dataset.rating;
+          try {
+            localStorage.setItem(REFLECTIONS_KEY, JSON.stringify(reflections));
+            renderReflection();
+          } catch (_) {
+            $("reflection-message").textContent = "Couldn't save your reflection in this browser.";
+          }
+        });
+      });
+
       $("clear-data").addEventListener("click", () => {
         if (!confirm("Clear all Offscreen screen-time entries saved in this browser? This cannot be undone.")) return;
         data = {};
-        try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
-        $("form-message").textContent = "Your saved entries have been cleared.";
+        preferences = {};
+        reflections = {};
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(PREFERENCES_KEY);
+          localStorage.removeItem(REFLECTIONS_KEY);
+        } catch (_) {}
+        $("form-message").textContent = "Your saved entries, goal, and reflections have been cleared.";
         render();
       });
 
