@@ -107,6 +107,13 @@
     .goal-line[hidden] { display:none; }
     .goal-legend { display:inline-flex; align-items:center; gap:6px; }
     .goal-dash { width:15px; border-top:2px dashed var(--danger); display:inline-block; }
+    .feedback-card { margin:0 0 18px; }
+    .feedback-card p { color:var(--muted); font-size:.86rem; line-height:1.6; margin:10px 0 16px; }
+    .feedback-actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .feedback-btn { flex:1; min-width:120px; border:1px solid var(--line); border-radius:13px; background:#f4f3ed; color:var(--ink); padding:13px 16px; font-weight:600; }
+    .feedback-btn:hover:not(:disabled) { border-color:var(--sage-dark); background:#e6e8dc; }
+    .feedback-btn:disabled { cursor:default; opacity:.7; }
+    .feedback-message { min-height:20px; margin-top:12px; color:var(--sage-dark); font-size:.8rem; line-height:1.5; }
     @media (max-width:720px) {
       .wrap { width:min(100% - 24px, 560px); }
       header { padding:20px 0; }
@@ -245,9 +252,20 @@
         </article>
       </section>
 
+      <section class="card feedback-card" aria-labelledby="feedback-heading">
+        <div class="eyebrow">A quick question</div>
+        <h2 id="feedback-heading" style="margin-top:8px;font-size:1.2rem">Was Offscreen genuinely helpful to you?</h2>
+        <p>Your answer is sent to help us understand how people experience Offscreen. We don't ask for your name or email, and the response isn't linked to your screen-time entries.</p>
+        <div class="feedback-actions" role="group" aria-label="Was Offscreen helpful?">
+          <button class="feedback-btn" id="feedback-yes" type="button" data-helpful="true">👍 Yes, it helped</button>
+          <button class="feedback-btn" id="feedback-no" type="button" data-helpful="false">👎 Not really</button>
+        </div>
+        <div class="feedback-message" id="feedback-message" role="status" aria-live="polite"></div>
+      </section>
+
       <div class="privacy">
         <span aria-hidden="true">◈</span>
-        <div><strong>Your entries stay in this browser.</strong> This first version saves data on this device only. It doesn't send your screen-time log to a server. Clearing browser data may erase your entries.</div>
+        <div><strong>Your screen-time entries stay in this browser.</strong> Your daily log, goal, and reflections are saved on this device and are not sent to a server. If you choose to answer the feedback question, that Yes/No response and its submission time are sent to our feedback database. The form doesn't ask for your name or email. Clearing browser data may erase your local entries.</div>
       </div>
     </main>
 
@@ -262,6 +280,12 @@
       const STORAGE_KEY = "offscreen-screen-time-v1";
       const PREFERENCES_KEY = "offscreen-preferences-v1";
       const REFLECTIONS_KEY = "offscreen-reflections-v1";
+      const FEEDBACK_SUBMITTED_KEY = "offscreen-feedback-submitted-v1";
+
+      // Supabase's publishable key is intended for browser use when RLS is configured.
+      // Never place a service_role or secret key in this file.
+      const SUPABASE_REST_URL = "https://vmxkwnmhgctxhpdnjtni.supabase.co/rest/v1/offscreen_feedback";
+      const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_tmPnqbaS0kgv0MxW6pToPA_qPwe_5b0";
       const quotes = [
         { text: "A little less scrolling. A little more living.", author: "An offscreen reminder" },
         { text: "Be where your feet are.", author: "An offscreen reminder" },
@@ -557,6 +581,62 @@
       $("next-quote").addEventListener("click", () => {
         renderQuote(currentQuoteIndex + 1);
       });
+
+      async function submitFeedback(helpful) {
+        const message = $("feedback-message");
+        const buttons = [$("feedback-yes"), $("feedback-no")];
+
+        try {
+          if (localStorage.getItem(FEEDBACK_SUBMITTED_KEY)) {
+            buttons.forEach(button => { button.disabled = true; });
+            message.textContent = "Thanks — you've already shared feedback from this browser.";
+            return;
+          }
+        } catch (_) {
+          // If browser storage is unavailable, still allow a submission.
+        }
+
+        buttons.forEach(button => { button.disabled = true; });
+        message.textContent = "Sending your feedback…";
+
+        try {
+          const response = await fetch(SUPABASE_REST_URL, {
+            method: "POST",
+            headers: {
+              "apikey": SUPABASE_PUBLISHABLE_KEY,
+              "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+              "Content-Type": "application/json",
+              "Prefer": "return=minimal"
+            },
+            body: JSON.stringify({ helpful })
+          });
+
+          if (!response.ok) {
+            const detail = await response.text().catch(() => "");
+            console.error("Offscreen feedback submission failed:", response.status, detail);
+            throw new Error("Feedback could not be saved.");
+          }
+
+          try { localStorage.setItem(FEEDBACK_SUBMITTED_KEY, "yes"); } catch (_) {}
+          message.textContent = "Thank you for being honest. Your feedback has been recorded.";
+        } catch (error) {
+          console.error(error);
+          message.textContent = "We couldn't send your feedback just now. Please try again in a moment.";
+          buttons.forEach(button => { button.disabled = false; });
+        }
+      }
+
+      $("feedback-yes").addEventListener("click", () => submitFeedback(true));
+      $("feedback-no").addEventListener("click", () => submitFeedback(false));
+
+      // Reflect an earlier successful vote in this browser without submitting it again.
+      try {
+        if (localStorage.getItem(FEEDBACK_SUBMITTED_KEY)) {
+          $("feedback-yes").disabled = true;
+          $("feedback-no").disabled = true;
+          $("feedback-message").textContent = "Thanks — you've already shared feedback from this browser.";
+        }
+      } catch (_) {}
 
       $("entry-form").addEventListener("submit", (event) => {
         event.preventDefault();
